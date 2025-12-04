@@ -2,7 +2,7 @@
 public static class Program {
     public static void Main(string[] args) {
         Console.WriteLine("Advent of Code 2025 - Day 25");
-        Day02 day = new();
+        Day03 day = new();
         day.Run();
     }
 }
