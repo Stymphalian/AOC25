@@ -1,4 +1,5 @@
 {
     "dotnet.defaultSolution": "AOC25.sln",
-    "editor.codeLens": false
+    "editor.codeLens": false,
+    "debug.console.collapseIdenticalLines": false
 }
