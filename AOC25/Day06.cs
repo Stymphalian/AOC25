@@ -1,8 +1,6 @@
-// 2025/12/04 9:00
-// 2025/12/04 10:22
-// https://adventofcode.com/2025/day/5
-
-using System.Net.Sockets;
+// 2025/12/05 9:00
+// 2025/12/05 10:17
+// https://adventofcode.com/2025/day/6
 
 public class Day06 {
     public const string ADD = "+";
