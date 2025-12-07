@@ -1,8 +1,8 @@
 ﻿
 public static class Program {
-    public static void Main(string[] args) {
-        Console.WriteLine("Advent of Code 2025 - Day 25");
-        Day06 day = new();
-        day.Run();
-    }
+  public static void Main(string[] args) {
+    Console.WriteLine("Advent of Code 2025 - Day 25");
+    Day07 day = new();
+    day.Run();
+  }
 }
