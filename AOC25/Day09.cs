@@ -11,7 +11,6 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
 public class Day09 {
-
   public class Vec2 {
     public long X;
     public long Y;
@@ -52,6 +51,10 @@ public class Day09 {
         return -1; // Counter-clockwise
       }
     }
+
+    public bool IsEqual(Vec2 other) {
+      return X == other.X && Y == other.Y;
+    }
   }
 
   List<Vec2> Reds = [];
@@ -89,7 +92,129 @@ public class Day09 {
   public const int DIR_DOWN = 2;
   public const int DIR_LEFT = 3;
 
+  public record Edge(Vec2 a, Vec2 b, int forward) {
+    public int Normal() {
+      return (forward + 1) % 4;
+    }
+    public int INormal() {
+      return (forward + 3) % 4;
+    }
+
+    public bool IsEqual(Edge other) {
+      return a.IsEqual(other.a) && b.IsEqual(other.b);
+    }
+
+    public long Length() {
+      if (forward == DIR_UP || forward == DIR_DOWN) {
+        return Math.Abs(a.Y - b.Y) + 1;
+      } else {
+        return Math.Abs(a.X - b.X) + 1;
+      }
+    }
+
+    public bool isSameOrientation(Edge other) {
+      return forward == other.forward || forward == (other.forward + 2) % 4;
+    }
+
+    public long DistanceToOpposite(Edge other) {
+      if (forward == DIR_UP || forward == DIR_DOWN) {
+        return Math.Abs(a.X - other.a.X) + 1;
+      } else {
+        return Math.Abs(a.Y - other.a.Y) + 1;
+      }
+    }
+
+    public bool InRange(Edge other) {
+      if (forward == DIR_UP || forward == DIR_DOWN) {
+        // Check that the Y ranges overlap
+        long top = Math.Min(a.Y, b.Y);
+        long bottom = Math.Max(a.Y, b.Y);
+        long minY = Math.Min(other.a.Y, other.b.Y);
+        long maxY = Math.Max(other.a.Y, other.b.Y);
+        if (bottom < minY || maxY < top) {
+          return false;
+        }
+      } else {
+        // Check that the X ranges overlap
+        long left = Math.Min(a.X, b.X);
+        long right = Math.Max(a.X, b.X);
+        long minX = Math.Min(other.a.X, other.b.X);
+        long maxX = Math.Max(other.a.X, other.b.X);
+        if (right < minX || maxX < left) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    public bool IsBehind(Edge other) {
+      // Based of the normal direction, check if the other edge is behind this edge
+      if (forward == DIR_UP) {
+        // normal is right
+        return other.a.X < a.X;
+      } else if (forward == DIR_DOWN) {
+        return other.a.X > a.X;
+      } else if (forward == DIR_RIGHT) {
+        return other.a.Y < a.Y;
+      } else { // (forward == DIR_LEFT) {
+        return other.a.Y > a.Y;
+      }
+    }
+
+
+    public static bool Intersects(Edge e1, Edge e2) {
+      long d1 = Vec2.getTurn(e1.a, e1.b, e2.a);
+      long d2 = Vec2.getTurn(e1.a, e1.b, e2.b);
+      long d3 = Vec2.getTurn(e2.a, e2.b, e1.a);
+      long d4 = Vec2.getTurn(e2.a, e2.b, e1.b);
+
+      if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+          ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
+        return true;
+      }
+      return false;
+    }
+  }
+
+  public Edge? FindClosestEdge(Edge edge, List<Edge> edges) {
+    int N = Reds.Count;
+    Edge bestEdge = null;
+    long bestDistance = long.MaxValue;
+
+    foreach (var other in edges) {
+      if (edge.IsEqual(other)) { continue; }
+      if (!edge.isSameOrientation(other)) { continue; }
+      if (edge.IsBehind(other)) { continue; }
+      if (!edge.InRange(other)) { continue; }
+      long distance = edge.DistanceToOpposite(other);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestEdge = other;
+      }
+    }
+
+    return bestEdge;
+  }
+
+  public void CompressRedTiles() {
+    // For every point, if the edge is just extended in the same direction just remove it.
+    List<Vec2> compressed = [];
+    int N = Reds.Count;
+    for (int i = 0; i < N; i++) {
+      Vec2 prev = Reds[Mod(i - 1, N)];
+      Vec2 current = Reds[i];
+      Vec2 next = Reds[Mod(i + 1, N)];
+
+      long turn = Vec2.getTurn(prev, current, next);
+      if (turn != 0) {
+        compressed.Add(current);
+      }
+    }
+    Reds = compressed;
+  }
+
   public void Solve2() {
+    CompressRedTiles();
     long maxArea = 0;
     int N = Reds.Count;
 
@@ -109,56 +234,33 @@ public class Day09 {
       Debug.Assert(false);
     }
 
+    // Create the list of edges with the forward direction.
     int index = startIndex;
+    List<Edge> edges = [];
     for (int i = 0; i < N; i++) {
-      Vec2 p1 = Reds[index];
-      Vec2 p2 = Reds[Mod(index + 1, N)];
-      Vec2 p3 = Reds[Mod(index - 1, N)];
-      Vec2 p4 = Reds[Mod(index + 2, N)];
+      Vec2 a = Reds[index];
+      Vec2 b = Reds[Mod(index + 1, N)];
+      Vec2 c = Reds[Mod(index + 2, N)];
+      edges.Add(new Edge(a, b, forward));
 
-      Vec2 other;
-      if (forward == DIR_UP) {
-        // go right
-        List<long> cands = [];
-        if (p3.X >= p1.X) { cands.Add(p3.X); }
-        if (p4.X >= p2.X) { cands.Add(p4.X); }
-        long candX = (cands.Count == 0) ? p1.X : cands.Min();
-        other = new(candX, p2.Y);
-      } else if (forward == DIR_RIGHT) {
-        // go down
-        List<long> cands = [];
-        if (p3.Y >= p1.Y) { cands.Add(p3.Y); }
-        if (p4.Y >= p2.Y) { cands.Add(p4.Y); }
-        long candY = (cands.Count == 0) ? p1.Y : cands.Min();
-        other = new(p2.X, candY);
-      } else if (forward == DIR_DOWN) {
-        // go left
-        List<long> cands = [];
-        if (p3.X <= p1.X) { cands.Add(p3.X); }
-        if (p4.X <= p2.X) { cands.Add(p4.X); }
-        long candX = (cands.Count == 0) ? p1.X : cands.Max();
-        other = new(candX, p2.Y);
-      } else { // (forward == DIR_LEFT) {
-        // go up
-        List<long> cands = [];
-        if (p3.Y <= p1.Y) { cands.Add(p3.Y); }
-        if (p4.Y <= p2.Y) { cands.Add(p4.Y); }
-        long candY = (cands.Count == 0) ? p1.Y : cands.Max();
-        other = new(p2.X, candY);
-      }
-
-      long turn = Vec2.getTurn(p2, p1, p4);
+      long turn = Vec2.getTurn(b, a, c);
       if (turn > 0) {
         forward = Mod(forward + 1, 4);
       } else if (turn < 0) {
         forward = Mod(forward - 1, 4);
       }
-
-      long area = p1.Area(other);
-      maxArea = Math.Max(area, maxArea);
       index = Mod(index + 1, N);
     }
 
+    foreach (var edge in edges) {
+      Edge? opposite = FindClosestEdge(edge, edges);
+      if (opposite != null) {
+        long height = edge.DistanceToOpposite(opposite);
+        long width = edge.Length();
+        long area = width * height;
+        maxArea = Math.Max(area, maxArea);
+      }
+    }
 
     Console.WriteLine(maxArea);
   }
@@ -166,5 +268,10 @@ public class Day09 {
   public void Run() {
     _ReadInput();
     Solve2();
+
+    // 122770129
+    // 1578115935
+    // long answer = SolvePart2Compressed(Reds.Select(v => new Pt(v.X, v.Y)).ToList());
+    // Console.WriteLine(answer);
   }
 }
