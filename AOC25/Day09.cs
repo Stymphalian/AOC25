@@ -5,10 +5,6 @@
 
 using System.Data;
 using System.Diagnostics;
-using System.Drawing;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 
 public class Day09 {
   public class Vec2 {
@@ -56,41 +52,6 @@ public class Day09 {
       return X == other.X && Y == other.Y;
     }
   }
-
-  List<Vec2> Reds = [];
-  private void _ReadInput() {
-    string filepath = "data/input1.txt";
-    string[] lines = File.ReadAllLines(filepath);
-    foreach (string line in lines) {
-      string[] parts = line.Split(',');
-      long x = long.Parse(parts[0]);
-      long y = long.Parse(parts[1]);
-      Reds.Add(new Vec2(x, y));
-    }
-  }
-
-  public static int Mod(int v, int n) {
-    return (v % n + n) % n;
-  }
-
-  public void Solve1() {
-    long maxArea = 0;
-    for (int a = 0; a < Reds.Count; a++) {
-      for (int b = a + 1; b < Reds.Count; b++) {
-        Vec2 bl = Reds[a];
-        Vec2 tr = Reds[b];
-        maxArea = Math.Max(bl.Area(tr), maxArea);
-      }
-    }
-
-    Console.WriteLine(maxArea);
-  }
-
-
-  public const int DIR_UP = 0;
-  public const int DIR_RIGHT = 1;
-  public const int DIR_DOWN = 2;
-  public const int DIR_LEFT = 3;
 
   public record Edge(Vec2 a, Vec2 b, int forward) {
     public int Normal() {
@@ -176,48 +137,112 @@ public class Day09 {
     }
   }
 
-  public Edge? FindClosestEdge(Edge edge, List<Edge> edges) {
-    int N = Reds.Count;
-    Edge bestEdge = null;
-    long bestDistance = long.MaxValue;
+  public class Rect(Vec2 tl, Vec2 br) {
+    public Vec2 TopLeft = tl;
+    public Vec2 BottomRight = br;
+    public Vec2 TopRight => new(BottomRight.X, TopLeft.Y);
+    public Vec2 BottomLeft => new(TopLeft.X, BottomRight.Y);
 
-    foreach (var other in edges) {
-      if (edge.IsEqual(other)) { continue; }
-      if (!edge.isSameOrientation(other)) { continue; }
-      if (edge.IsBehind(other)) { continue; }
-      if (!edge.InRange(other)) { continue; }
-      long distance = edge.DistanceToOpposite(other);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestEdge = other;
+    public bool Intersects(Edge e) {
+      long minX = Math.Min(e.a.X, e.b.X); ;
+      long maxX = Math.Max(e.a.X, e.b.X);
+      long minY = Math.Min(e.a.Y, e.b.Y); ;
+      long maxY = Math.Max(e.a.Y, e.b.Y); ;
+
+      if (maxX <= TopLeft.X || minX >= BottomRight.X || maxY <= TopLeft.Y || minY >= BottomRight.Y) {
+        // Outside the rectangle
+        return false;
       }
+      if (minX == maxX) {
+        // vertical
+        if (minX == TopLeft.X || minX == BottomRight.X) {
+          return false;
+        }
+        return true;
+      } else if (minY == maxY) {
+        // horizontal
+        if (minY == TopLeft.Y || minY == BottomRight.Y) {
+          return false;
+        }
+        return true;
+      } else {
+        Debug.Assert(false);
+      }
+      return false;
     }
-
-    return bestEdge;
   }
 
-  public void CompressRedTiles() {
-    // For every point, if the edge is just extended in the same direction just remove it.
-    List<Vec2> compressed = [];
-    int N = Reds.Count;
-    for (int i = 0; i < N; i++) {
-      Vec2 prev = Reds[Mod(i - 1, N)];
-      Vec2 current = Reds[i];
-      Vec2 next = Reds[Mod(i + 1, N)];
+  List<Vec2> Reds = [];
+  private void _ReadInput() {
+    string filepath = "data/input1.txt";
+    string[] lines = File.ReadAllLines(filepath);
+    foreach (string line in lines) {
+      string[] parts = line.Split(',');
+      long x = long.Parse(parts[0]);
+      long y = long.Parse(parts[1]);
+      Reds.Add(new Vec2(x, y));
+    }
+  }
 
-      long turn = Vec2.getTurn(prev, current, next);
-      if (turn != 0) {
-        compressed.Add(current);
+  public static int Mod(int v, int n) {
+    return (v % n + n) % n;
+  }
+
+  public void Solve1() {
+    long maxArea = 0;
+    for (int a = 0; a < Reds.Count; a++) {
+      for (int b = a + 1; b < Reds.Count; b++) {
+        Vec2 bl = Reds[a];
+        Vec2 tr = Reds[b];
+        maxArea = Math.Max(bl.Area(tr), maxArea);
       }
     }
-    Reds = compressed;
+
+    Console.WriteLine(maxArea);
+  }
+
+
+  public const int DIR_UP = 0;
+  public const int DIR_RIGHT = 1;
+  public const int DIR_DOWN = 2;
+  public const int DIR_LEFT = 3;
+
+  public Rect? GetRectFromVectors(Vec2 a, Vec2 b, int dirA) {
+    long minX = Math.Min(a.X, b.X);
+    long maxX = Math.Max(a.X, b.X);
+    long minY = Math.Min(a.Y, b.Y);
+    long maxY = Math.Max(a.Y, b.Y);
+
+    Vec2 tl = new Vec2(minX, minY);
+    Vec2 br = new Vec2(maxX, maxY);
+    var rect = new Rect(tl, br);
+
+    if (dirA == DIR_UP) {
+      if (!a.IsEqual(rect.BottomLeft)) {
+        return null;
+      }
+    } else if (dirA == DIR_DOWN) {
+      if (!a.IsEqual(rect.TopRight)) {
+        return null;
+      }
+    } else if (dirA == DIR_LEFT) {
+      if (!a.IsEqual(rect.BottomRight)) {
+        return null;
+      }
+    } else if (dirA == DIR_RIGHT) {
+      if (!a.IsEqual(rect.TopLeft)) {
+        return null;
+      }
+    }
+    return rect;
   }
 
   public void Solve2() {
-    CompressRedTiles();
-    long maxArea = 0;
     int N = Reds.Count;
 
+    // Try and find the starting index where the Edge is at the top-left edge
+    // of the enclosed polygon. This ensures we know the correct "inner" orientation
+    // of the polygon as we walk around it.
     int startIndex = Reds
       .Select((x, i) => i)
       .OrderBy(i => Reds[i].Y)
@@ -235,13 +260,17 @@ public class Day09 {
     }
 
     // Create the list of edges with the forward direction.
+    // This is to help with rectangle orientation later, as well as to ensure
+    // we know the inward facing direction of each edge.
     int index = startIndex;
     List<Edge> edges = [];
+    Dictionary<int, int> VertexDirection = [];
     for (int i = 0; i < N; i++) {
       Vec2 a = Reds[index];
       Vec2 b = Reds[Mod(index + 1, N)];
       Vec2 c = Reds[Mod(index + 2, N)];
       edges.Add(new Edge(a, b, forward));
+      VertexDirection[index] = forward;
 
       long turn = Vec2.getTurn(b, a, c);
       if (turn > 0) {
@@ -252,12 +281,42 @@ public class Day09 {
       index = Mod(index + 1, N);
     }
 
-    foreach (var edge in edges) {
-      Edge? opposite = FindClosestEdge(edge, edges);
-      if (opposite != null) {
-        long height = edge.DistanceToOpposite(opposite);
-        long width = edge.Length();
-        long area = width * height;
+
+    long maxArea = 0;
+    for (index = startIndex; index != Mod(startIndex - 1, N); index = Mod(index + 1, N)) {
+
+      for (int other = Mod(index + 1, N); other != index; other = Mod(other + 1, N)) {
+        Vec2 a = Reds[index];
+        Vec2 b = Reds[other];
+
+        if (a.X == b.X || a.Y == b.Y) {
+          // Skip lines which are in-line (either vertical or horizontal)
+          continue;
+        }
+
+        Rect? rect = GetRectFromVectors(a, b, VertexDirection[index]);
+        if (rect == null) {
+          // skip rectangles which are curved outwards
+          continue;
+        }
+
+        // Check to see if any edges intersect through the rectangle
+        // if they do then we know that atleast some-part of the path crosses
+        // inside the proposed rectangle which would make an area "ouside" 
+        // the polygon, therfore making it "invalid"
+        bool intersects = false;
+        foreach (var edge in edges) {
+          if (rect.Intersects(edge)) {
+            intersects = true;
+            break;
+          }
+        }
+        if (intersects) {
+          continue;
+        }
+
+        // All conditions pass, so get the Area as a candidate for the max area
+        long area = rect.TopLeft.Area(rect.BottomRight);
         maxArea = Math.Max(area, maxArea);
       }
     }
@@ -265,13 +324,47 @@ public class Day09 {
     Console.WriteLine(maxArea);
   }
 
+  public void CheckForLoops() {
+    HashSet<(int, int)> visited = new();
+    foreach (var red in Reds) {
+      var key = ((int)red.X, (int)red.Y);
+      if (visited.Contains(key)) {
+        Console.WriteLine("Loop detected at " + red.X + "," + red.Y);
+      }
+      visited.Add(key);
+    }
+
+    // Check for fold backs
+    for (int index = 0; index < Reds.Count; index++) {
+      Vec2 a = Reds[index];
+      Vec2 b = Reds[Mod(index + 1, Reds.Count)];
+      Vec2 c = Reds[Mod(index + 2, Reds.Count)];
+      Vec2 d = Reds[Mod(index + 3, Reds.Count)];
+      if (a.X == b.X && c.X == d.X) {
+        // Vertical
+        if (a.X + 1 == c.X || a.X - 1 == c.X) {
+          // fold back detected
+          Console.WriteLine($"Fold back detected at index {index}");
+        }
+      } else if (a.Y == b.Y && c.Y == d.Y) {
+        // Horizonta
+        if (a.Y + 1 == c.Y || a.Y - 1 == c.Y) {
+          // fold back detected
+          Console.WriteLine($"Fold back detected at index {index}");
+        }
+      } else {
+        // not in the same axis, so they can not be parllel
+      }
+    }
+  }
+
+
   public void Run() {
     _ReadInput();
+    CheckForLoops();
     Solve2();
 
     // 122770129
     // 1578115935
-    // long answer = SolvePart2Compressed(Reds.Select(v => new Pt(v.X, v.Y)).ToList());
-    // Console.WriteLine(answer);
   }
 }
